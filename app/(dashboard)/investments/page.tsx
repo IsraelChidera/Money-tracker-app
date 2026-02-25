@@ -1,0 +1,198 @@
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, TrendingUp, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useAppStore, selectTotalInvestments } from "@/store/app-store";
+import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
+import { formatCurrency, formatDate, calculateGrowthPct } from "@/lib/utils";
+import { ASSET_CLASSES } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { AllocationChart } from "@/components/charts/allocation-chart";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+const ASSET_COLORS: Record<string, string> = {
+  Stocks: "#6366f1",
+  ETF: "#10b981",
+  Bonds: "#f59e0b",
+  "Real Estate": "#ec4899",
+  Crypto: "#f97316",
+  "Fixed Income": "#06b6d4",
+  "Mutual Fund": "#8b5cf6",
+  Other: "#71717a",
+};
+
+export default function InvestmentsPage() {
+  const { investments, addInvestment, deleteInvestment } = useAppStore();
+  const totalInvestments = useAppStore(selectTotalInvestments);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<InvestmentFormData>({
+    resolver: zodResolver(investmentSchema),
+    defaultValues: {
+      platform: "", assetName: "", assetClass: "Stocks",
+      quantity: 0, purchasePrice: 0, currentValue: 0,
+      date: new Date().toISOString().slice(0, 10), notes: "",
+    },
+  });
+
+  const onSubmit = async (data: InvestmentFormData) => {
+    await new Promise((r) => setTimeout(r, 400));
+    addInvestment({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    setModalOpen(false);
+    reset();
+  };
+
+  const pieData = investments.map((inv) => ({
+    name: inv.assetName,
+    value: inv.currentValue,
+    color: ASSET_COLORS[inv.assetClass] ?? "#6366f1",
+  }));
+
+  const totalCost = investments.reduce((s, i) => s + i.purchasePrice * i.quantity, 0);
+  const totalReturn = totalInvestments - totalCost;
+  const returnPct = calculateGrowthPct(totalInvestments, totalCost);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-white">Investments</h1>
+          <p className="mt-0.5 text-sm text-zinc-500">Monitor your investment portfolio</p>
+        </div>
+        <Button onClick={() => { reset(); setModalOpen(true); }}>
+          <Plus className="h-4 w-4" />
+          Add Investment
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Portfolio Value" value={formatCurrency(totalInvestments)} change={15.8} icon={TrendingUp} accentColor="#6366f1" />
+        <StatCard label="Total Cost" value={formatCurrency(totalCost)} icon={TrendingUp} accentColor="#f59e0b" />
+        <StatCard
+          label="Total Return"
+          value={formatCurrency(Math.abs(totalReturn))}
+          icon={totalReturn >= 0 ? ArrowUpRight : ArrowDownRight}
+          accentColor={totalReturn >= 0 ? "#10b981" : "#ef4444"}
+        />
+        <StatCard label="Return %" value={`${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(1)}%`} icon={TrendingUp} accentColor={returnPct >= 0 ? "#10b981" : "#ef4444"} />
+      </div>
+
+      {/* Charts + table */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {investments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Portfolio Allocation</CardTitle>
+            </CardHeader>
+            <AllocationChart data={pieData} totalNetWorth={totalInvestments} />
+          </Card>
+        )}
+
+        <div className={cn("overflow-hidden rounded-2xl border border-white/8 bg-zinc-900/80", investments.length > 0 ? "lg:col-span-2" : "lg:col-span-3")}>
+          {investments.length === 0 ? (
+            <EmptyState
+              icon={TrendingUp}
+              title="No investments yet"
+              description="Start tracking your portfolio by adding your first investment."
+              action={{ label: "Add Investment", onClick: () => setModalOpen(true) }}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    {["Asset", "Platform", "Class", "Qty", "Cost", "Value", "Return", ""].map((h) => (
+                      <th key={h} className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-widest text-zinc-600">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {investments.map((inv) => {
+                    const cost = inv.purchasePrice * inv.quantity;
+                    const ret = inv.currentValue - cost;
+                    const retPct = calculateGrowthPct(inv.currentValue, cost);
+                    return (
+                      <tr key={inv.id} className="transition-colors hover:bg-white/3">
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${ASSET_COLORS[inv.assetClass]}18` }}>
+                              <TrendingUp className="h-3.5 w-3.5" style={{ color: ASSET_COLORS[inv.assetClass] }} />
+                            </div>
+                            <span className="text-sm font-bold text-white">{inv.assetName}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-zinc-400">{inv.platform}</td>
+                        <td className="px-4 py-4">
+                          <Badge variant="default" className="text-[10px]">{inv.assetClass}</Badge>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-zinc-300">{inv.quantity}</td>
+                        <td className="px-4 py-4 text-sm text-zinc-400">{formatCurrency(cost)}</td>
+                        <td className="px-4 py-4 text-sm font-bold text-white">{formatCurrency(inv.currentValue)}</td>
+                        <td className="px-4 py-4">
+                          <span className={cn("text-sm font-bold", ret >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {ret >= 0 ? "+" : "−"}{formatCurrency(Math.abs(ret))}
+                            <span className="ml-1 text-xs opacity-70">({ret >= 0 ? "+" : ""}{retPct.toFixed(1)}%)</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Button variant="danger" size="icon" className="h-7 w-7" onClick={() => deleteInvestment(inv.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Investment" subtitle="Track a new investment position">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Platform" placeholder="e.g. Bamboo" error={errors.platform?.message} {...register("platform")} />
+            <Input label="Asset Name" placeholder="e.g. AAPL" error={errors.assetName?.message} {...register("assetName")} />
+          </div>
+          <Select
+            label="Asset Class"
+            error={errors.assetClass?.message}
+            options={ASSET_CLASSES.map((c) => ({ label: c, value: c }))}
+            {...register("assetClass")}
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <Input label="Quantity" type="number" min={0} step="any" placeholder="1" error={errors.quantity?.message} {...register("quantity", { valueAsNumber: true })} />
+            <Input label="Buy Price (₦)" type="number" min={0} placeholder="0" error={errors.purchasePrice?.message} {...register("purchasePrice", { valueAsNumber: true })} />
+            <Input label="Current Value (₦)" type="number" min={0} placeholder="0" error={errors.currentValue?.message} {...register("currentValue", { valueAsNumber: true })} />
+          </div>
+          <Input label="Date" type="date" error={errors.date?.message} {...register("date")} />
+          <Input label="Notes (optional)" placeholder="Any notes..." {...register("notes")} />
+          <div className="flex gap-3 justify-end pt-2">
+            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="submit" loading={isSubmitting}>Add Investment</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

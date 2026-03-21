@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 type Currency = "NGN" | "USD" | "GBP" | "EUR";
 
@@ -17,7 +18,8 @@ function getGreeting(): string {
 }
 
 export function WelcomeBanner({ name, netWorth, currency = "NGN" }: WelcomeBannerProps) {
-  const displayName = name || "there";
+  const { user, profile, signOut } = useAuth();
+  const displayName = profile?.name ?? user?.displayName ?? user?.email ?? "User";
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 via-brand-500 to-violet-600 p-6 shadow-xl shadow-brand-500/20">

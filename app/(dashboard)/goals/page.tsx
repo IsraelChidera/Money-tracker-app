@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Target, CheckCircle, Clock } from "lucide-react";
-import { useAppStore, selectActiveGoals, selectCompletedGoals } from "@/store/app-store";
+import { Plus, Target, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useGoals } from "@/hooks/useGoals";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
 import { GOAL_PRESET_COLORS } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -15,12 +17,51 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GoalCard } from "@/components/goals/goal-card";
 import { cn } from "@/lib/utils";
 
+type Currency = "NGN" | "USD" | "GBP" | "EUR";
+
+const CURRENCY_SYMBOL: Record<Currency, string> = {
+  NGN: "₦", USD: "$", GBP: "£", EUR: "€",
+};
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="h-7 w-24 rounded-xl bg-white/5" />
+          <div className="h-4 w-48 rounded bg-white/5" />
+        </div>
+        <div className="h-9 w-28 rounded-xl bg-white/5" />
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-white/5" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-52 rounded-2xl bg-white/5" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function GoalsPage() {
-  const { goals, addGoal, deleteGoal } = useAppStore();
-  const activeGoals = useAppStore(selectActiveGoals);
-  const completedGoals = useAppStore(selectCompletedGoals);
+  const { profile } = useAuth();
+  const { goals, activeGoals, loading, error, add, update, remove, complete, pause, resume } =
+    useGoals();
+  const currency = (profile?.currency ?? "NGN") as Currency;
+  const symbol = CURRENCY_SYMBOL[currency];
+
+  const completedGoals = goals.filter(
+    (g) => g.currentAmount >= g.targetAmount || g.status === "completed"
+  );
+  const pausedGoals = goals.filter((g) => g.status === "paused");
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(GOAL_PRESET_COLORS[0]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -31,27 +72,53 @@ export default function GoalsPage() {
   } = useForm<GoalFormData>({
     resolver: zodResolver(goalSchema),
     defaultValues: {
-      name: "", description: "",
-      targetAmount: 0, currentAmount: 0,
-      deadline: "", color: GOAL_PRESET_COLORS[0],
+      name: "",
+      description: "",
+      targetAmount: 0,
+      currentAmount: 0,
+      deadline: "",
+      color: GOAL_PRESET_COLORS[0],
     },
   });
 
   const openModal = () => {
+    setSubmitError(null);
     reset({
-      name: "", description: "",
-      targetAmount: 0, currentAmount: 0,
-      deadline: "", color: GOAL_PRESET_COLORS[0],
+      name: "",
+      description: "",
+      targetAmount: 0,
+      currentAmount: 0,
+      deadline: "",
+      color: GOAL_PRESET_COLORS[0],
     });
     setSelectedColor(GOAL_PRESET_COLORS[0]);
     setModalOpen(true);
   };
 
   const onSubmit = async (data: GoalFormData) => {
-    await new Promise((r) => setTimeout(r, 400));
-    addGoal({ ...data, status: "active" });
-    setModalOpen(false);
+    setSubmitError(null);
+    try {
+      const { createdAt: _createdAt, ...rest } = data;
+      await add(rest);
+      setModalOpen(false);
+    } catch {
+      setSubmitError("Failed to create goal. Please try again.");
+    }
   };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await remove(id);
+    } catch {
+      // swallowed
+    }
+  };
+
+  const handleContribute = async (id: string, newAmount: number) => {
+    await update(id, { currentAmount: newAmount });
+  };
+
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -66,6 +133,14 @@ export default function GoalsPage() {
           New Goal
         </Button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -93,7 +168,36 @@ export default function GoalsPage() {
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {activeGoals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} onDelete={deleteGoal} />
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    currency={currency}
+                    onDelete={handleDelete}
+                    onUpdate={handleContribute}
+                    onComplete={(id) => complete(id, goal.targetAmount)}
+                    onPause={pause}
+                    onResume={resume}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {pausedGoals.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-zinc-500">
+                Paused Goals
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {pausedGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    currency={currency}
+                    onDelete={handleDelete}
+                    onUpdate={handleContribute}
+                    onResume={resume}
+                  />
                 ))}
               </div>
             </div>
@@ -106,7 +210,12 @@ export default function GoalsPage() {
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {completedGoals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} onDelete={deleteGoal} />
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    currency={currency}
+                    onDelete={handleDelete}
+                  />
                 ))}
               </div>
             </div>
@@ -114,16 +223,49 @@ export default function GoalsPage() {
         </>
       )}
 
-      {/* Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create a New Goal" subtitle="Set a target and track your progress">
+      {/* Create Goal Modal */}
+      <Modal
+        open={modalOpen}
+        onClose={() => !isSubmitting && setModalOpen(false)}
+        title="Create a New Goal"
+        subtitle="Set a target and track your progress"
+      >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input label="Goal Name" placeholder="e.g. Emergency Fund" error={errors.name?.message} {...register("name")} />
-          <Input label="Description (optional)" placeholder="Why this goal matters to you..." {...register("description")} />
+          <Input
+            label="Goal Name"
+            placeholder="e.g. Emergency Fund"
+            error={errors.name?.message}
+            {...register("name")}
+          />
+          <Input
+            label="Description (optional)"
+            placeholder="Why this goal matters to you..."
+            {...register("description")}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Target Amount (₦)" type="number" min={0} placeholder="10000" error={errors.targetAmount?.message} {...register("targetAmount", { valueAsNumber: true })} />
-            <Input label="Current Amount (₦)" type="number" min={0} placeholder="0" error={errors.currentAmount?.message} {...register("currentAmount", { valueAsNumber: true })} />
+            <Input
+              label={`Target Amount (${symbol})`}
+              type="number"
+              min={0}
+              placeholder="10000"
+              error={errors.targetAmount?.message}
+              {...register("targetAmount", { valueAsNumber: true })}
+            />
+            <Input
+              label={`Starting Amount (${symbol})`}
+              type="number"
+              min={0}
+              placeholder="0"
+              error={errors.currentAmount?.message}
+              {...register("currentAmount", { valueAsNumber: true })}
+            />
           </div>
-          <Input label="Deadline" type="date" error={errors.deadline?.message} {...register("deadline")} />
+          <Input
+            label="Deadline"
+            type="date"
+            error={errors.deadline?.message}
+            {...register("deadline")}
+          />
 
           {/* Color picker */}
           <div>
@@ -151,9 +293,24 @@ export default function GoalsPage() {
             </div>
           </div>
 
+          {submitError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {submitError}
+            </p>
+          )}
+
           <div className="flex gap-3 justify-end pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" loading={isSubmitting}>Create Goal</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={isSubmitting}>
+              Create Goal
+            </Button>
           </div>
         </form>
       </Modal>

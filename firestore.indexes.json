@@ -1,0 +1,53 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "savings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "date",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "savings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "platform", "order": "ASCENDING" },
+        { "fieldPath": "date",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "investments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assetClass", "order": "ASCENDING" },
+        { "fieldPath": "date",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "investments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "platform", "order": "ASCENDING" },
+        { "fieldPath": "date",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "goals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",   "order": "ASCENDING" },
+        { "fieldPath": "deadline", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

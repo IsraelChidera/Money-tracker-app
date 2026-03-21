@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, PiggyBank, Wallet, Edit2, Trash2 } from "lucide-react";
-import { useAppStore, selectTotalSavings } from "@/store/app-store";
+import { Plus, PiggyBank, Wallet, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useSavings } from "@/hooks/useSavings";
 import { savingsSchema, type SavingsFormData } from "@/lib/validations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SAVINGS_CATEGORIES } from "@/lib/constants";
@@ -17,18 +18,61 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { SavingsEntry } from "@/types";
 
+type Currency = "NGN" | "USD" | "GBP" | "EUR";
+
+const CURRENCY_SYMBOL: Record<Currency, string> = {
+  NGN: "₦", USD: "$", GBP: "£", EUR: "€",
+};
+
+const categoryColors: Record<string, string> = {
+  "Emergency Fund": "success",
+  "Travel": "default",
+  "House": "warning",
+  "Car": "default",
+  "Education": "default",
+  "Business": "success",
+  "Retirement": "warning",
+  "General": "outline",
+};
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="h-7 w-28 rounded-xl bg-white/5" />
+          <div className="h-4 w-48 rounded bg-white/5" />
+        </div>
+        <div className="h-9 w-32 rounded-xl bg-white/5" />
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-white/5" />
+        ))}
+      </div>
+      <div className="h-64 rounded-2xl bg-white/5" />
+    </div>
+  );
+}
+
 export default function SavingsPage() {
-  const { savings, addSavings, updateSavings, deleteSavings } = useAppStore();
-  const totalSavings = useAppStore(selectTotalSavings);
+  const { profile } = useAuth();
+  const { savings, loading, error, add, update, remove } = useSavings();
+  const currency = (profile?.currency ?? "NGN") as Currency;
+  const fmt = (n: number) => formatCurrency(n, currency);
+  const symbol = CURRENCY_SYMBOL[currency];
+
+  const totalSavings = savings.reduce((sum, s) => sum + s.amount, 0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SavingsFormData>({
     resolver: zodResolver(savingsSchema),
@@ -37,42 +81,56 @@ export default function SavingsPage() {
 
   const openAdd = () => {
     setEditingId(null);
-    reset({ platform: "", amount: 0, category: "General", date: new Date().toISOString().slice(0, 10), notes: "" });
+    setSubmitError(null);
+    reset({
+      platform: "",
+      amount: 0,
+      category: "General",
+      date: new Date().toISOString().slice(0, 10),
+      notes: "",
+    });
     setModalOpen(true);
   };
 
   const openEdit = (entry: SavingsEntry) => {
     setEditingId(entry.id);
+    setSubmitError(null);
     reset({
       platform: entry.platform,
       amount: entry.amount,
       category: entry.category,
-      date: entry.date,
+      date: entry.date.slice(0, 10),
       notes: entry.notes ?? "",
     });
     setModalOpen(true);
   };
 
   const onSubmit = async (data: SavingsFormData) => {
-    await new Promise((r) => setTimeout(r, 400));
-    if (editingId) {
-      updateSavings(editingId, data);
-    } else {
-      addSavings({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    setSubmitError(null);
+    try {
+      if (editingId) {
+        await update(editingId, data);
+      } else {
+        await add(data);
+      }
+      setModalOpen(false);
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
     }
-    setModalOpen(false);
   };
 
-  const categoryColors: Record<string, string> = {
-    "Emergency Fund": "success",
-    "Travel": "default",
-    "House": "warning",
-    "Car": "default",
-    "Education": "default",
-    "Business": "success",
-    "Retirement": "warning",
-    "General": "outline",
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await remove(id);
+    } catch {
+      // error is swallowed — entry stays in list
+    } finally {
+      setDeletingId(null);
+    }
   };
+
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -88,13 +146,32 @@ export default function SavingsPage() {
         </Button>
       </div>
 
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Total Savings" value={formatCurrency(totalSavings)} change={5.2} icon={PiggyBank} accentColor="#10b981" className="sm:col-span-2" />
-        <StatCard label="Accounts" value={String(savings.length)} icon={Wallet} accentColor="#6366f1" />
+        <StatCard
+          label="Total Savings"
+          value={fmt(totalSavings)}
+          icon={PiggyBank}
+          accentColor="#10b981"
+          className="sm:col-span-2"
+        />
+        <StatCard
+          label="Accounts"
+          value={String(savings.length)}
+          icon={Wallet}
+          accentColor="#6366f1"
+        />
         <StatCard
           label="Avg. per Account"
-          value={savings.length > 0 ? formatCurrency(Math.round(totalSavings / savings.length)) : "₦0"}
+          value={savings.length > 0 ? fmt(Math.round(totalSavings / savings.length)) : fmt(0)}
           icon={PiggyBank}
           accentColor="#f59e0b"
         />
@@ -114,7 +191,7 @@ export default function SavingsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5">
-                  {["Platform", "Category", "Amount", "Date", "Actions"].map((h) => (
+                  {["Platform", "Category", "Amount", "Date", "Notes", "Actions"].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-widest text-zinc-600"
@@ -141,10 +218,13 @@ export default function SavingsPage() {
                       </Badge>
                     </td>
                     <td className="px-5 py-4 font-bold text-white">
-                      {formatCurrency(entry.amount)}
+                      {fmt(entry.amount)}
                     </td>
                     <td className="px-5 py-4 text-sm text-zinc-500">
                       {formatDate(entry.date)}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-zinc-500 max-w-[160px] truncate">
+                      {entry.notes ?? <span className="text-zinc-700">—</span>}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
@@ -160,7 +240,8 @@ export default function SavingsPage() {
                           variant="danger"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => deleteSavings(entry.id)}
+                          loading={deletingId === entry.id}
+                          onClick={() => handleDelete(entry.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -174,10 +255,10 @@ export default function SavingsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Add / Edit Modal */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => !isSubmitting && setModalOpen(false)}
         title={editingId ? "Edit Savings Entry" : "Add Savings Entry"}
         subtitle="Track a savings account or deposit"
       >
@@ -190,7 +271,7 @@ export default function SavingsPage() {
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="Amount (₦)"
+              label={`Amount (${symbol})`}
               type="number"
               min={0}
               placeholder="0"
@@ -215,8 +296,20 @@ export default function SavingsPage() {
             placeholder="Any notes about this entry..."
             {...register("notes")}
           />
+
+          {submitError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {submitError}
+            </p>
+          )}
+
           <div className="flex gap-3 justify-end pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalOpen(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" loading={isSubmitting}>

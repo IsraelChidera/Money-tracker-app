@@ -6,7 +6,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Check } from "lucide-react";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/components/firebase";
+import { userService } from "@/services/userService";
 import { registerSchema, type RegisterFormData } from "@/lib/validations";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +24,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const {
     register,
@@ -30,9 +35,23 @@ export default function RegisterPage() {
     defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
 
-  const onSubmit = async (_data: RegisterFormData) => {
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/dashboard");
+  const onSubmit = async (data: RegisterFormData) => {
+    setAuthError(null);
+    try {
+      const { user } = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
+      // Set displayName on the Auth profile
+      await updateProfile(user, { displayName: data.name });
+      // Create the Firestore user document
+      await userService.create(user.uid, data.name, data.email);
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      setAuthError(getAuthErrorMessage(code));
+    }
   };
 
   return (
@@ -47,13 +66,15 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Social */}
+        {/* Social — coming soon */}
         <div className="mb-6 grid grid-cols-2 gap-3">
           {["🔵 Google", "🍎 Apple"].map((s) => (
             <button
               key={s}
               type="button"
-              className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-white/10"
+              disabled
+              title="Coming soon"
+              className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-500 cursor-not-allowed opacity-50"
             >
               {s}
             </button>
@@ -113,11 +134,10 @@ export default function RegisterPage() {
                     className="flex items-center gap-1 text-[11px]"
                   >
                     <div
-                      className={`h-3.5 w-3.5 rounded-full flex items-center justify-center ${
-                        rule.test(password)
+                      className={`h-3.5 w-3.5 rounded-full flex items-center justify-center ${rule.test(password)
                           ? "bg-accent-500/20 text-accent-400"
                           : "bg-white/8 text-zinc-600"
-                      }`}
+                        }`}
                     >
                       {rule.test(password) && <Check className="h-2 w-2" />}
                     </div>
@@ -141,6 +161,12 @@ export default function RegisterPage() {
             error={errors.confirmPassword?.message}
             {...register("confirmPassword")}
           />
+
+          {authError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {authError}
+            </p>
+          )}
 
           <Button
             type="submit"

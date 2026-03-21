@@ -1,18 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/components/firebase";
 import { loginSchema, type LoginFormData } from "@/lib/validations";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const {
     register,
@@ -23,10 +28,17 @@ export default function LoginPage() {
     defaultValues: { email: "", password: "", rememberMe: false },
   });
 
-  const onSubmit = async (_data: LoginFormData) => {
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/dashboard");
+  const onSubmit = async (data: LoginFormData) => {
+    setAuthError(null);
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+      // Redirect back to the page the user was trying to visit, or dashboard
+      const from = searchParams.get("from") ?? "/dashboard";
+      router.push(from);
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      setAuthError(getAuthErrorMessage(code));
+    }
   };
 
   return (
@@ -42,13 +54,15 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Social */}
+        {/* Social — coming soon */}
         <div className="mb-6 grid grid-cols-2 gap-3">
           {["🔵 Google", "🍎 Apple"].map((s) => (
             <button
               key={s}
               type="button"
-              className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-white/10"
+              disabled
+              title="Coming soon"
+              className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-500 cursor-not-allowed opacity-50"
             >
               {s}
             </button>
@@ -107,6 +121,12 @@ export default function LoginPage() {
               Forgot password?
             </a>
           </div>
+
+          {authError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {authError}
+            </p>
+          )}
 
           <Button
             type="submit"

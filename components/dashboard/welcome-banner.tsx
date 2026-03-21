@@ -1,13 +1,23 @@
 import { Sparkles } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
+type Currency = "NGN" | "USD" | "GBP" | "EUR";
+
 interface WelcomeBannerProps {
   name: string;
   netWorth: number;
+  currency?: Currency;
 }
 
-export function WelcomeBanner({ name, netWorth }: WelcomeBannerProps) {
-  const firstName = name.split(" ")[0];
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+export function WelcomeBanner({ name, netWorth, currency = "NGN" }: WelcomeBannerProps) {
+  const displayName = name || "there";
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 via-brand-500 to-violet-600 p-6 shadow-xl shadow-brand-500/20">
@@ -22,14 +32,14 @@ export function WelcomeBanner({ name, netWorth }: WelcomeBannerProps) {
           <div className="mb-1 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-white/70" />
             <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
-              Good morning
+              {getGreeting()}
             </span>
           </div>
           <h2 className="text-xl font-extrabold text-white tracking-tight">
-            {firstName} 👋
+            {displayName} 👋
           </h2>
           <p className="mt-0.5 text-sm text-white/60">
-            Your finances are on track. Keep it up!
+            Here&apos;s your financial overview
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -37,7 +47,7 @@ export function WelcomeBanner({ name, netWorth }: WelcomeBannerProps) {
             Net Worth
           </p>
           <p className="text-3xl font-black tracking-tight text-white">
-            {formatCurrency(netWorth)}
+            {formatCurrency(netWorth, currency)}
           </p>
         </div>
       </div>

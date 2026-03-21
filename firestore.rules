@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ─────────────────────────────────────────────────────
+
+    /** True when the caller is signed in and owns this resource */
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    /** Ensure required fields exist on create */
+    function hasFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    /** Amount must be a positive number */
+    function validAmount() {
+      return request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+    }
+
+    // ─── users/{uid} ──────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && hasFields(["name", "email", "plan", "currency"]);
+      allow update: if isOwner(uid);
+      allow delete: if false; // never delete profile from the client
+
+      // ─── savings ────────────────────────────────────────────────────────────
+      match /savings/{savingsId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && hasFields(["platform", "amount", "category", "date"])
+                      && validAmount();
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── investments ────────────────────────────────────────────────────────
+      match /investments/{investmentId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && hasFields([
+                           "platform", "assetName", "assetClass",
+                           "quantity", "purchasePrice", "currentValue", "date"
+                         ]);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── goals ──────────────────────────────────────────────────────────────
+      match /goals/{goalId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && hasFields([
+                           "name", "targetAmount", "currentAmount",
+                           "deadline", "color", "status"
+                         ]);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // ─── activity ───────────────────────────────────────────────────────────
+      // Activity is written server-side by the service layer — clients can only read.
+      match /activity/{activityId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && hasFields(["type", "direction", "amount", "platform", "date"]);
+        allow update: if false; // activity is immutable
+        allow delete: if false;
+      }
+    }
+
+    // Block every other path
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

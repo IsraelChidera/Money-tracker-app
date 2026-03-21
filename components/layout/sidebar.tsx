@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home, PiggyBank, TrendingUp, FileText,
   Target, Settings, LogOut, DollarSign,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/app-store";
+import { useAuth } from "@/context/AuthContext";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -25,8 +27,23 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onClose }: SidebarProps) {
+  const { user, profile, signOut } = useAuth();
   const pathname = usePathname();
-  const user = useAppStore((s) => s.user);
+  const router = useRouter();
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const displayName = profile?.name ?? user?.displayName ?? user?.email ?? "User";
+
+  const handleLogOut = async () => {
+    setAuthError(null);
+    try {
+      await signOut();
+      router.push("/login");
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code ?? "";
+      setAuthError(getAuthErrorMessage(code));
+    }
+  };
 
   return (
     <aside className="flex h-full flex-col bg-zinc-950 border-r border-white/5">
@@ -43,14 +60,16 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* User card */}
       <div className="mx-3 mt-4 mb-2 rounded-xl bg-brand-500/8 border border-brand-500/15 p-3">
         <div className="flex items-center gap-2.5">
-          <Avatar name={user.name} size="sm" />
+          <Avatar name={displayName} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">
-              {user.name}
+              {displayName}
             </p>
-            <p className="text-xs text-zinc-500 capitalize">{user.plan} plan</p>
+            <p className="truncate text-xs text-zinc-500">{user?.email}</p>
           </div>
-          <Badge variant="free" className="text-[10px]">Free</Badge>
+          <Badge variant="free" className="text-[10px] capitalize">
+            {profile?.plan ?? "free"}
+          </Badge>
         </div>
       </div>
 
@@ -82,14 +101,19 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t border-white/5 p-3">
-        <Link
-          href="/"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-500 hover:bg-white/5 hover:text-zinc-300 transition-colors"
+      <div className="border-t border-white/5 p-3 space-y-2">
+        {authError && (
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {authError}
+          </p>
+        )}
+        <button
+          onClick={handleLogOut}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-500 hover:bg-white/5 hover:text-zinc-300 transition-colors"
         >
           <LogOut className="h-4 w-4" />
           Sign out
-        </Link>
+        </button>
       </div>
     </aside>
   );

@@ -8,11 +8,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Check } from "lucide-react";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/components/firebase";
+import { signInWithGoogle } from "@/lib/auth-google-login";
 import { userService } from "@/services/userService";
 import { registerSchema, type RegisterFormData } from "@/lib/validations";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 const passwordRules = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -25,6 +27,21 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignUp = async () => {
+    setAuthError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      setAuthError(getAuthErrorMessage(code));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const {
     register,
@@ -66,19 +83,20 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Social — coming soon */}
-        <div className="mb-6 grid grid-cols-2 gap-3">
-          {["🔵 Google", "🍎 Apple"].map((s) => (
-            <button
-              key={s}
-              type="button"
-              disabled
-              title="Coming soon"
-              className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-500 cursor-not-allowed opacity-50"
-            >
-              {s}
-            </button>
-          ))}
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={googleLoading}
+            className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 py-2.5 text-sm font-semibold text-zinc-300 flex items-center gap-2 justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {googleLoading ? (
+              <span className="h-4 w-4 rounded-full border-2 border-zinc-500 border-t-white animate-spin" />
+            ) : (
+              <Image src="/google.png" alt="google" width={20} height={20} />
+            )}
+            Continue with Google
+          </button>
         </div>
 
         <div className="mb-6 flex items-center gap-3">
@@ -135,8 +153,8 @@ export default function RegisterPage() {
                   >
                     <div
                       className={`h-3.5 w-3.5 rounded-full flex items-center justify-center ${rule.test(password)
-                          ? "bg-accent-500/20 text-accent-400"
-                          : "bg-white/8 text-zinc-600"
+                        ? "bg-accent-500/20 text-accent-400"
+                        : "bg-white/8 text-zinc-600"
                         }`}
                     >
                       {rule.test(password) && <Check className="h-2 w-2" />}

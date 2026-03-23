@@ -8,10 +8,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/components/firebase";
+import { signInWithGoogle } from "@/lib/auth-google-login";
 import { loginSchema, type LoginFormData } from "@/lib/validations";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 // Isolated to a child component so it can be wrapped in Suspense —
 // useSearchParams() requires a Suspense boundary during static generation.
@@ -20,6 +22,22 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      const from = searchParams.get("from") ?? "/dashboard";
+      router.push(from);
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      setAuthError(getAuthErrorMessage(code));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const {
     register,
@@ -44,19 +62,20 @@ function LoginForm() {
 
   return (
     <>
-      {/* Social — coming soon */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
-        {["🔵 Google", "🍎 Apple"].map((s) => (
-          <button
-            key={s}
-            type="button"
-            disabled
-            title="Coming soon"
-            className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-zinc-500 cursor-not-allowed opacity-50"
-          >
-            {s}
-          </button>
-        ))}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={googleLoading}
+          className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 py-2.5 text-sm font-semibold text-zinc-300 flex items-center gap-2 justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {googleLoading ? (
+            <span className="h-4 w-4 rounded-full border-2 border-zinc-500 border-t-white animate-spin" />
+          ) : (
+            <Image src="/google.png" alt="google" width={20} height={20} />
+          )}
+          Continue with Google
+        </button>
       </div>
 
       <div className="mb-6 flex items-center gap-3">

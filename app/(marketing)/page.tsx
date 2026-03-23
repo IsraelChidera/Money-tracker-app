@@ -75,7 +75,7 @@ export default function HomePage() {
             All plans are currently free during launch
           </div>
 
-          <h1 className="mb-6 text-5xl font-black leading-[1.06] tracking-tight text-white lg:text-6xl">
+          <h1 className="mb-6 text-3xl font-black leading-[1.06] tracking-tight text-white lg:text-6xl">
             See Your Entire{" "}
             <span className="text-gradient">Financial Life</span>
             <br />

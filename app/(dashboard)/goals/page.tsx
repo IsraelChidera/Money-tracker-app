@@ -130,7 +130,8 @@ export default function GoalsPage() {
         </div>
         <Button onClick={openModal}>
           <Plus className="h-4 w-4" />
-          New Goal
+          <span className="lg:block hidden">Add Goal</span>
+          <span className="lg:hidden block">Add</span>
         </Button>
       </div>
 
@@ -143,7 +144,7 @@ export default function GoalsPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-2 grid-cols-1 xl:grid-cols-3 gap-4">
         <StatCard label="Total Goals" value={String(goals.length)} icon={Target} accentColor="#6366f1" />
         <StatCard label="Active" value={String(activeGoals.length)} icon={Clock} accentColor="#f59e0b" />
         <StatCard label="Completed" value={String(completedGoals.length)} icon={CheckCircle} accentColor="#10b981" />

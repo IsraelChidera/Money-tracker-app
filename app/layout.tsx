@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | MyMoney",
   },
   description:
-    "Track savings, monitor investments, visualize growth, and hit your financial goals — all in one beautiful dashboard.",
+    "Track savings, monitor investments, visualize growth, and hit your financial goals, all in one beautiful dashboard.",
   keywords: ["personal finance", "savings tracker", "investment tracker", "budgeting", "financial goals"],
 };
 

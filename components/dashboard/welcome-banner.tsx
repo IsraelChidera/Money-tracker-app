@@ -29,7 +29,7 @@ export function WelcomeBanner({ name, netWorth, currency = "NGN" }: WelcomeBanne
         <div className="absolute -bottom-4 left-12 h-24 w-24 rounded-full bg-white/20 blur-xl" />
       </div>
 
-      <div className="relative flex items-center justify-between gap-4">
+      <div className="relative lg:flex items-center justify-between gap-4">
         <div>
           <div className="mb-1 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-white/70" />
@@ -37,14 +37,14 @@ export function WelcomeBanner({ name, netWorth, currency = "NGN" }: WelcomeBanne
               {getGreeting()}
             </span>
           </div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">
+          <h2 className="xl:text-xl lg:text-lg text-base font-extrabold text-white tracking-tight">
             {displayName} 👋
           </h2>
           <p className="mt-0.5 text-sm text-white/60">
             Here&apos;s your financial overview
           </p>
         </div>
-        <div className="text-right shrink-0">
+        <div className="lg:text-right shrink-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">
             Net Worth
           </p>

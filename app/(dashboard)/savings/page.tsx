@@ -140,9 +140,10 @@ export default function SavingsPage() {
           <h1 className="text-2xl font-black tracking-tight text-white">Savings</h1>
           <p className="mt-0.5 text-sm text-zinc-500">Track all your savings accounts</p>
         </div>
-        <Button onClick={openAdd}>
+        <Button  onClick={openAdd}>
           <Plus className="h-4 w-4" />
-          Add Savings
+          <span className="lg:block hidden">Add Savings</span>
+          <span className="lg:hidden block">Add</span>
         </Button>
       </div>
 
@@ -155,7 +156,7 @@ export default function SavingsPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid lg:grid-cols-2 grid-cols-1 gap-4 xl:grid-cols-4">
         <StatCard
           label="Total Savings"
           value={fmt(totalSavings)}
@@ -224,7 +225,7 @@ export default function SavingsPage() {
                       {formatDate(entry.date)}
                     </td>
                     <td className="px-5 py-4 text-sm text-zinc-500 max-w-[160px] truncate">
-                      {entry.notes ?? <span className="text-zinc-700">—</span>}
+                      {entry.notes ?? <span className="text-zinc-700">-</span>}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
@@ -255,7 +256,6 @@ export default function SavingsPage() {
         )}
       </div>
 
-      {/* Add / Edit Modal */}
       <Modal
         open={modalOpen}
         onClose={() => !isSubmitting && setModalOpen(false)}

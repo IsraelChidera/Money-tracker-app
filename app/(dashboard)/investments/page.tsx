@@ -172,7 +172,8 @@ export default function InvestmentsPage() {
         </div>
         <Button onClick={openAdd}>
           <Plus className="h-4 w-4" />
-          Add Investment
+          <span className="lg:block hidden">Add Investment</span>
+          <span className="lg:hidden block">Add</span>
         </Button>
       </div>
 
@@ -185,7 +186,7 @@ export default function InvestmentsPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid lg:grid-cols-2 grid-cols-1 gap-4 xl:grid-cols-4">
         <StatCard
           label="Portfolio Value"
           value={fmt(totalValue)}
@@ -263,7 +264,7 @@ export default function InvestmentsPage() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2.5">
                             <div
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+                              className="hidden lg:flex lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-xl"
                               style={{ background: `${ASSET_COLORS[inv.assetClass]}18` }}
                             >
                               <TrendingUp

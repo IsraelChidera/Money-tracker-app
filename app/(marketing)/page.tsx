@@ -11,7 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "MyMoney — Your Financial Life in One Place",
+  title: "MyMoney - Your Financial Life in One Place",
 };
 
 const features = [
@@ -84,7 +84,7 @@ export default function HomePage() {
 
           <p className="mx-auto mb-10 max-w-xl text-lg text-zinc-400 leading-relaxed">
             Track savings, monitor investments, visualize growth, and hit your
-            financial goals — effortlessly.
+            financial goals effortlessly.
           </p>
 
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

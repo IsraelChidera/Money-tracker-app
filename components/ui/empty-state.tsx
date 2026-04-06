@@ -9,6 +9,7 @@ interface EmptyStateProps {
     label: string;
     onClick: () => void;
   };
+  className?: string;
 }
 
 export function EmptyState({
@@ -16,9 +17,10 @@ export function EmptyState({
   title,
   description,
   action,
+  className,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className={`flex flex-col items-center justify-center py-16 text-center ${className || ''}`}>
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500/10 border border-brand-500/20">
         <Icon className="h-7 w-7 text-brand-400" />
       </div>

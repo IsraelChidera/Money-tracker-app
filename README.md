@@ -1,4 +1,4 @@
-# MyMoney 💰
+# MyMoney 
 
 A full-featured personal finance tracker built with **Next.js 14**, **TypeScript**, **Tailwind CSS**, and **Zustand**.
 
